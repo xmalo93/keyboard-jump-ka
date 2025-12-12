@@ -3,32 +3,36 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Keyboard Jump (KA) — ტექსტის ბეჭდვის თამაში</title>
+  <title>Keyboard Jump (KA) — ფერადი typing თამაში</title>
   <style>
-    html,body{margin:0;height:100%;background:#0b0f1a;color:#e8ecff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    html,body{margin:0;height:100%;background:#070a12;color:#eef2ff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
     .wrap{max-width:980px;margin:0 auto;padding:16px}
-    .top{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
-    .card{background:#121a2e;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px}
-    canvas{width:100%;height:auto;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:linear-gradient(180deg,#0f1730,#070a12)}
-    .row{display:flex;gap:10px;flex-wrap:wrap}
-    .row>*{flex:1}
+    .top{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between}
+    .card{background:rgba(15,18,35,.8);backdrop-filter: blur(8px);border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:12px}
+    canvas{width:100%;height:auto;border-radius:14px;border:1px solid rgba(255,255,255,.12);background:#000}
+    .row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
     label{font-size:13px;opacity:.9}
-    select,button,input{background:#0b1022;color:#e8ecff;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px}
+    select,button,input{background:#0b1022;color:#e8ecff;border:1px solid rgba(255,255,255,.16);border-radius:10px;padding:10px}
     button{cursor:pointer}
-    .hint{opacity:.85;font-size:13px;line-height:1.35}
-    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;background:#0b1022;padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,.12)}
+    .hint{opacity:.88;font-size:13px;line-height:1.35}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;background:#0b1022;padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,.14)}
+    .small{font-size:12px;opacity:.8}
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="top">
-      <div>
-        <div style="font-size:20px;font-weight:700">Keyboard Jump — ქართული ვერსია</div>
-        <div class="hint">შენი მიზანია: ეკრანზე გამოჩენილი სიტყვა/ასოები სწორად აკრიფო, რომ პერსონაჟი არ ჩავარდეს.</div>
+      <div style="flex:1;min-width:260px">
+        <div style="font-size:20px;font-weight:750">Keyboard Jump — ქართული ფერადი ვერსია</div>
+        <div class="hint" style="margin-top:6px">
+          მიზანი: აკრიფე ეკრანზე რაც წერია. <br/>
+          ❌ შეცდომაზე ან დროის ამოწურვაზე კუბიკი ჩავარდება.
+        </div>
       </div>
-      <div class="card">
+
+      <div class="card" style="min-width:310px">
         <div class="row">
-          <div>
+          <div style="flex:1;min-width:150px">
             <label>სირთულე</label><br />
             <select id="difficulty">
               <option value="easy">მარტივი</option>
@@ -36,20 +40,26 @@
               <option value="hard">რთული</option>
             </select>
           </div>
-          <div>
-            <label>დაწყება</label><br />
-            <button id="startBtn">Start / დაწყება</button>
+          <div style="flex:1;min-width:140px">
+            <label>Start</label><br />
+            <button id="startBtn">დაწყება</button>
           </div>
         </div>
-        <div class="hint" style="margin-top:8px">
-          რჩევა: ჩართე ქართული კლავიატურა (KA).<br/>
+
+        <div style="margin-top:10px">
+          <label>კუბიკის სიჩქარე: <span id="speedLabel">საშუალო</span></label><br/>
+          <input id="speed" type="range" min="1" max="5" value="3" style="width:100%" />
+          <div class="small">1 = ნელა (ბევრი დრო) · 5 = ძალიან სწრაფი (ცოტა დრო)</div>
+        </div>
+
+        <div class="hint" style="margin-top:10px">
           პაუზა: <span class="kbd">P</span> · თავიდან: <span class="kbd">R</span>
         </div>
       </div>
     </div>
 
     <div style="margin-top:12px">
-      <canvas id="c" width="960" height="420"></canvas>
+      <canvas id="c" width="960" height="460"></canvas>
     </div>
   </div>
 
@@ -60,162 +70,200 @@
 
   const startBtn = document.getElementById('startBtn');
   const difficultySel = document.getElementById('difficulty');
+  const speedRange = document.getElementById('speed');
+  const speedLabel = document.getElementById('speedLabel');
 
+  // ქართული სიტყვები (შეგიძლია დაამატო/შეცვალო)
   const WORDS = {
-    easy: ["და","მე","შენ","რა","კი","არა","სკოლა","კატა","ძაღლი","ბაღი","მზე","წყალი","სახლი","წიგნი","ბურთი","ფანქარი","კოდი"],
-    medium: ["სწრაფად","კომპიუტერი","კლავიატურა","სწავლა","მოსწავლე","მასწავლებელი","დავალება","ინტერნეტი","ქართული","სიჩქარე","სიზუსტე","პლატფორმა"],
-    hard: ["პროგრამირება","თვალსაჩინოება","კონცენტრაცია","გათვალისწინებით","ინსტრუქცია","ტექსტისდამუშავება","ავტომატიზაცია","შეუფერხებლად","დამაკავშირებელი"]
+    easy: ["და","მე","შენ","კი","არა","მზე","წყალი","სახლი","წიგნი","კატა","ძაღლი","ბურთი","ფერი","ბაღი","გზა","დღე"],
+    medium: ["ქართული","კლავიატურა","კომპიუტერი","სიჩქარე","სიზუსტე","სწავლა","მოსწავლე","დავალება","ინტერნეტი","მასწავლებელი","პროგრამა"],
+    hard: ["ავტომატიზაცია","კონცენტრაცია","გათვალისწინებით","შეუფერხებლად","ტექსტისდამუშავება","პროგრამირება","დამაკავშირებელი"]
   };
 
+  // speed -> რამდენი დრო აქვს ერთ სიტყვას (წამებში)
+  // 1 ნელა ... 5 სწრაფი
+  function timeLimitForSpeed(speed, difficulty) {
+    // საბაზისო დროები სირთულის მიხედვით
+    const base = (difficulty === 'easy') ? 6.0 : (difficulty === 'medium' ? 5.0 : 4.2);
+    // speed 1 => +2.2s, speed 5 => -1.6s
+    const adj = (3 - speed) * 0.95;
+    return Math.max(1.6, base + adj);
+  }
+
+  function speedName(v){
+    return v==1?"ძალიან ნელი":v==2?"ნელი":v==3?"საშუალო":v==4?"სწრაფი":"ძალიან სწრაფი";
+  }
+
+  // game state
   let running=false, paused=false;
   let tPrev=0;
 
-  // world
-  const G = 1800; // gravity
-  const player = { x:160, y:220, vy:0, w:26, h:34, onGround:false, alive:true, score:0 };
-  let platforms = [];
-  let gapSpeed = 180; // px/s scroll
-  let spawnTimer = 0;
+  const player = { x: 170, y: 308, w: 30, h: 30, vy: 0, falling: false, alive: true, score: 0 };
+  const groundY = 340; // ground top
 
-  // typing
-  let target = "";
-  let typed = "";
+  // typing state
+  let target="", typed="";
+  let timeLimit=5.0;
+  let timeLeft=5.0;
 
-  function reset() {
-    player.x=160; player.y=220; player.vy=0; player.onGround=false; player.alive=true; player.score=0;
-    platforms = [
-      {x:0,y:300,w:360,h:18},
-      {x:420,y:270,w:240,h:18},
-      {x:740,y:315,w:260,h:18}
-    ];
-    spawnTimer = 0;
-    pickNewTarget();
-  }
+  // colorful background shapes
+  const blobs = Array.from({length: 28}, (_,i)=>({
+    x: (i*137)%960,
+    y: (i*83)%460,
+    r: 16 + (i%7)*8,
+    vx: (i%2? 22:-18),
+    vy: (i%3? 14:-12),
+    hue: (i*37)%360
+  }));
 
   function pickNewTarget(){
     const diff = difficultySel.value;
     const arr = WORDS[diff] || WORDS.easy;
     target = arr[Math.floor(Math.random()*arr.length)];
     typed = "";
+    timeLimit = timeLimitForSpeed(parseInt(speedRange.value,10), diff);
+    timeLeft = timeLimit;
   }
 
-  function jumpBoost(){
-    // small reward jump + slightly slower fall
+  function reset(){
+    player.y = groundY - player.h;
+    player.vy = 0;
+    player.falling = false;
+    player.alive = true;
+    player.score = 0;
+    pickNewTarget();
+  }
+
+  function fail(){
     if(!player.alive) return;
-    player.vy = -520;
+    player.falling = true;
+    player.vy = 120; // initial drop
   }
 
   function update(dt){
     if(!running || paused) return;
 
-    // scroll platforms
-    for(const p of platforms) p.x -= gapSpeed * dt;
-
-    // spawn new platforms
-    spawnTimer -= dt;
-    if(spawnTimer <= 0){
-      spawnTimer = 0.85; // spawn cadence
-      const last = platforms[platforms.length-1];
-      const yChoices = [250,270,290,310,330];
-      const y = yChoices[Math.floor(Math.random()*yChoices.length)];
-      const w = 200 + Math.random()*180;
-      const x = Math.max(980, (last ? last.x + last.w + 140 : 980));
-      platforms.push({x,y,w,h:18});
-      // trim old
-      platforms = platforms.filter(p => p.x + p.w > -50);
-      // speed up with score
-      gapSpeed = 180 + Math.min(260, player.score*2);
+    // animate background blobs
+    for(const b of blobs){
+      b.x += b.vx*dt; b.y += b.vy*dt;
+      if(b.x < -60) b.x = canvas.width+60;
+      if(b.x > canvas.width+60) b.x = -60;
+      if(b.y < -60) b.y = canvas.height+60;
+      if(b.y > canvas.height+60) b.y = -60;
+      b.hue = (b.hue + 20*dt) % 360;
     }
 
-    // physics
-    player.vy += G*dt;
-    player.y += player.vy*dt;
-
-    // collisions
-    player.onGround = false;
-    for(const p of platforms){
-      const px1=p.x, px2=p.x+p.w, py1=p.y, py2=p.y+p.h;
-      const cx1=player.x, cx2=player.x+player.w, cy1=player.y, cy2=player.y+player.h;
-
-      // only land when falling
-      if(player.vy >= 0 && cx2 > px1 && cx1 < px2 && cy2 > py1 && cy2 < py2 + 24){
-        player.y = py1 - player.h;
-        player.vy = 0;
-        player.onGround = true;
+    // timer counts down only when not falling
+    if(player.alive && !player.falling){
+      timeLeft -= dt;
+      if(timeLeft <= 0){
+        timeLeft = 0;
+        fail(); // დრო ამოიწურა -> ჩავარდება
       }
     }
 
-    // fall -> lose
-    if(player.y > canvas.height + 80){
-      player.alive=false;
-      running=false;
+    // falling physics (only on fail)
+    if(player.falling){
+      const G = 2200;
+      player.vy += G*dt;
+      player.y += player.vy*dt;
+      if(player.y > canvas.height + 120){
+        player.alive = false;
+        running = false;
+      }
+    } else {
+      // ensure stays on ground (no falling)
+      player.y = groundY - player.h;
+      player.vy = 0;
     }
   }
 
   function draw(){
-    // bg
-    ctx.clearRect(0,0,canvas.width,canvas.height);
+    // background gradient
+    const g = ctx.createLinearGradient(0,0,canvas.width,canvas.height);
+    g.addColorStop(0, "#0b1022");
+    g.addColorStop(1, "#070a12");
+    ctx.fillStyle = g;
+    ctx.fillRect(0,0,canvas.width,canvas.height);
 
-    // stars
-    ctx.globalAlpha = 0.25;
-    for(let i=0;i<50;i++){
-      const x = (i*191)%canvas.width;
-      const y = (i*97)%canvas.height;
-      ctx.fillRect(x,y,2,2);
+    // colorful blobs
+    for(const b of blobs){
+      ctx.globalAlpha = 0.20;
+      ctx.beginPath();
+      ctx.fillStyle = `hsl(${b.hue} 90% 60%)`;
+      ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+      ctx.fill();
     }
     ctx.globalAlpha = 1;
 
-    // platforms
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    for(const p of platforms){
-      ctx.fillRect(p.x,p.y,p.w,p.h);
-      ctx.fillStyle = "rgba(255,255,255,0.18)";
-      ctx.fillRect(p.x,p.y, p.w, 4);
-      ctx.fillStyle = "rgba(255,255,255,0.12)";
+    // ground (multicolor stripes)
+    const groundH = canvas.height - groundY;
+    const stripeW = 36;
+    for(let x=0;x<canvas.width;x+=stripeW){
+      const hue = (x*0.8 + performance.now()*0.02) % 360;
+      ctx.fillStyle = `hsl(${hue} 85% 45%)`;
+      ctx.globalAlpha = 0.45;
+      ctx.fillRect(x, groundY, stripeW, groundH);
     }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(0, groundY, canvas.width, 3);
 
-    // player
-    ctx.fillStyle = player.alive ? "rgba(120,190,255,0.95)" : "rgba(255,90,90,0.9)";
-    ctx.fillRect(player.x, player.y, player.w, player.h);
-    ctx.fillStyle = "rgba(0,0,0,0.25)";
-    ctx.fillRect(player.x+6, player.y+10, 4, 4);
-    ctx.fillRect(player.x+16, player.y+10, 4, 4);
-
-    // UI
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    // UI: score + timer
+    ctx.fillStyle = "rgba(255,255,255,0.94)";
     ctx.font = "18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
     ctx.fillText("ქულა: " + player.score, 16, 26);
 
-    // target box
-    const boxX=16, boxY=44, boxW=canvas.width-32, boxH=64;
+    // timer bar
+    const barX=16, barY=36, barW=260, barH=10;
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(barX,barY,barW,barH);
+    const p = timeLimit ? (timeLeft/timeLimit) : 0;
+    // color changes as time goes low (green->yellow->red)
+    const hue = 120*p; // 120..0
+    ctx.fillStyle = `hsl(${hue} 90% 55%)`;
+    ctx.fillRect(barX,barY,barW*p,barH);
+    ctx.fillStyle = "rgba(255,255,255,0.7)";
+    ctx.font = "12px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    ctx.fillText("დრო: " + timeLeft.toFixed(1) + "s", barX+barW+10, barY+10);
+
+    // typing box
+    const boxX=16, boxY=60, boxW=canvas.width-32, boxH=74;
     ctx.fillStyle = "rgba(0,0,0,0.35)";
     ctx.fillRect(boxX,boxY,boxW,boxH);
-    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    ctx.strokeStyle = "rgba(255,255,255,0.16)";
     ctx.strokeRect(boxX,boxY,boxW,boxH);
 
-    ctx.fillStyle = "rgba(255,255,255,0.92)";
-    ctx.font = "22px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
-    ctx.fillText("დასაწერი: " + target, boxX+14, boxY+30);
+    ctx.font = "26px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    ctx.fillStyle = "rgba(255,255,255,0.95)";
+    ctx.fillText("დასაწერი: " + target, boxX+16, boxY+34);
 
-    // typed highlight
-    ctx.font = "22px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
     ctx.fillStyle = "rgba(120,255,170,0.95)";
-    ctx.fillText("შენ: " + typed, boxX+14, boxY+56);
+    ctx.fillText("შენ: " + typed, boxX+16, boxY+64);
 
+    // player cube
+    const hueCube = (performance.now()*0.05) % 360;
+    ctx.fillStyle = player.falling ? "rgba(255,90,90,0.95)" : `hsl(${hueCube} 90% 60%)`;
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(player.x+8, player.y+10, 4, 4);
+    ctx.fillRect(player.x+18, player.y+10, 4, 4);
+
+    // overlays
     if(!running){
       ctx.fillStyle="rgba(0,0,0,0.55)";
       ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle="rgba(255,255,255,0.95)";
-      ctx.font="28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      ctx.fillText(player.alive ? "დასაწყებად დააჭირე Start" : "დამთავრდა! Start — თავიდან", 260, 210);
+      ctx.fillStyle="rgba(255,255,255,0.96)";
+      ctx.font="30px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx.fillText(player.alive ? "დასაწყებად დააჭირე „დაწყება“" : "დამთავრდა! დააჭირე „დაწყება“", 220, 220);
       ctx.font="15px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      ctx.fillText("წესები: სწორად აკრიფე სიტყვა. შეცდომაზე ქულა არ ემატება.", 270, 240);
+      ctx.fillText("შეცდომა ან დროის ამოწურვა = კუბიკი ჩავარდება.", 305, 250);
     } else if(paused){
       ctx.fillStyle="rgba(0,0,0,0.45)";
       ctx.fillRect(0,0,canvas.width,canvas.height);
-      ctx.fillStyle="rgba(255,255,255,0.95)";
-      ctx.font="28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      ctx.fillText("პაუზა (P)", 410, 210);
+      ctx.fillStyle="rgba(255,255,255,0.96)";
+      ctx.font="30px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx.fillText("პაუზა (P)", 410, 230);
     }
   }
 
@@ -228,28 +276,34 @@
     requestAnimationFrame(loop);
   }
 
-  // input: typing one key at a time
+  // input
   window.addEventListener('keydown', (e) => {
     if(e.key === "p" || e.key === "P"){ if(running) paused=!paused; return; }
     if(e.key === "r" || e.key === "R"){ reset(); running=true; paused=false; return; }
     if(!running || paused) return;
+    if(!player.alive || player.falling) return;
 
-    // ignore control keys
     if(e.key.length !== 1) return;
 
-    // match next char
     const next = target[typed.length];
     if(e.key === next){
       typed += e.key;
       if(typed === target){
         player.score += target.length * 10;
-        jumpBoost();
         pickNewTarget();
       }
     } else {
-      // wrong key: small penalty (optional)
-      player.score = Math.max(0, player.score - 2);
+      // ❌ ONLY FAIL CONDITION: wrong key
+      fail();
     }
+  });
+
+  // UI events
+  speedRange.addEventListener('input', ()=>{
+    speedLabel.textContent = speedName(parseInt(speedRange.value,10));
+    // ახალი სიჩქარე მოქმედებს შემდეგ სიტყვაზე (და თუ გინდა ახლავე - uncomment ქვემოთ)
+    // timeLimit = timeLimitForSpeed(parseInt(speedRange.value,10), difficultySel.value);
+    // timeLeft = Math.min(timeLeft, timeLimit);
   });
 
   startBtn.addEventListener('click', () => {
@@ -258,6 +312,8 @@
     paused = false;
   });
 
+  // init
+  speedLabel.textContent = speedName(parseInt(speedRange.value,10));
   reset();
   requestAnimationFrame(loop);
 })();
