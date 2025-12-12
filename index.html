@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="ka">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Keyboard Jump (KA) — ტექსტის ბეჭდვის თამაში</title>
+  <style>
+    html,body{margin:0;height:100%;background:#0b0f1a;color:#e8ecff;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    .wrap{max-width:980px;margin:0 auto;padding:16px}
+    .top{display:flex;gap:12px;flex-wrap:wrap;align-items:center;justify-content:space-between}
+    .card{background:#121a2e;border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:12px}
+    canvas{width:100%;height:auto;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:linear-gradient(180deg,#0f1730,#070a12)}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .row>*{flex:1}
+    label{font-size:13px;opacity:.9}
+    select,button,input{background:#0b1022;color:#e8ecff;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:10px}
+    button{cursor:pointer}
+    .hint{opacity:.85;font-size:13px;line-height:1.35}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;background:#0b1022;padding:2px 6px;border-radius:8px;border:1px solid rgba(255,255,255,.12)}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div style="font-size:20px;font-weight:700">Keyboard Jump — ქართული ვერსია</div>
+        <div class="hint">შენი მიზანია: ეკრანზე გამოჩენილი სიტყვა/ასოები სწორად აკრიფო, რომ პერსონაჟი არ ჩავარდეს.</div>
+      </div>
+      <div class="card">
+        <div class="row">
+          <div>
+            <label>სირთულე</label><br />
+            <select id="difficulty">
+              <option value="easy">მარტივი</option>
+              <option value="medium">საშუალო</option>
+              <option value="hard">რთული</option>
+            </select>
+          </div>
+          <div>
+            <label>დაწყება</label><br />
+            <button id="startBtn">Start / დაწყება</button>
+          </div>
+        </div>
+        <div class="hint" style="margin-top:8px">
+          რჩევა: ჩართე ქართული კლავიატურა (KA).<br/>
+          პაუზა: <span class="kbd">P</span> · თავიდან: <span class="kbd">R</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:12px">
+      <canvas id="c" width="960" height="420"></canvas>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d');
+
+  const startBtn = document.getElementById('startBtn');
+  const difficultySel = document.getElementById('difficulty');
+
+  const WORDS = {
+    easy: ["და","მე","შენ","რა","კი","არა","სკოლა","კატა","ძაღლი","ბაღი","მზე","წყალი","სახლი","წიგნი","ბურთი","ფანქარი","კოდი"],
+    medium: ["სწრაფად","კომპიუტერი","კლავიატურა","სწავლა","მოსწავლე","მასწავლებელი","დავალება","ინტერნეტი","ქართული","სიჩქარე","სიზუსტე","პლატფორმა"],
+    hard: ["პროგრამირება","თვალსაჩინოება","კონცენტრაცია","გათვალისწინებით","ინსტრუქცია","ტექსტისდამუშავება","ავტომატიზაცია","შეუფერხებლად","დამაკავშირებელი"]
+  };
+
+  let running=false, paused=false;
+  let tPrev=0;
+
+  // world
+  const G = 1800; // gravity
+  const player = { x:160, y:220, vy:0, w:26, h:34, onGround:false, alive:true, score:0 };
+  let platforms = [];
+  let gapSpeed = 180; // px/s scroll
+  let spawnTimer = 0;
+
+  // typing
+  let target = "";
+  let typed = "";
+
+  function reset() {
+    player.x=160; player.y=220; player.vy=0; player.onGround=false; player.alive=true; player.score=0;
+    platforms = [
+      {x:0,y:300,w:360,h:18},
+      {x:420,y:270,w:240,h:18},
+      {x:740,y:315,w:260,h:18}
+    ];
+    spawnTimer = 0;
+    pickNewTarget();
+  }
+
+  function pickNewTarget(){
+    const diff = difficultySel.value;
+    const arr = WORDS[diff] || WORDS.easy;
+    target = arr[Math.floor(Math.random()*arr.length)];
+    typed = "";
+  }
+
+  function jumpBoost(){
+    // small reward jump + slightly slower fall
+    if(!player.alive) return;
+    player.vy = -520;
+  }
+
+  function update(dt){
+    if(!running || paused) return;
+
+    // scroll platforms
+    for(const p of platforms) p.x -= gapSpeed * dt;
+
+    // spawn new platforms
+    spawnTimer -= dt;
+    if(spawnTimer <= 0){
+      spawnTimer = 0.85; // spawn cadence
+      const last = platforms[platforms.length-1];
+      const yChoices = [250,270,290,310,330];
+      const y = yChoices[Math.floor(Math.random()*yChoices.length)];
+      const w = 200 + Math.random()*180;
+      const x = Math.max(980, (last ? last.x + last.w + 140 : 980));
+      platforms.push({x,y,w,h:18});
+      // trim old
+      platforms = platforms.filter(p => p.x + p.w > -50);
+      // speed up with score
+      gapSpeed = 180 + Math.min(260, player.score*2);
+    }
+
+    // physics
+    player.vy += G*dt;
+    player.y += player.vy*dt;
+
+    // collisions
+    player.onGround = false;
+    for(const p of platforms){
+      const px1=p.x, px2=p.x+p.w, py1=p.y, py2=p.y+p.h;
+      const cx1=player.x, cx2=player.x+player.w, cy1=player.y, cy2=player.y+player.h;
+
+      // only land when falling
+      if(player.vy >= 0 && cx2 > px1 && cx1 < px2 && cy2 > py1 && cy2 < py2 + 24){
+        player.y = py1 - player.h;
+        player.vy = 0;
+        player.onGround = true;
+      }
+    }
+
+    // fall -> lose
+    if(player.y > canvas.height + 80){
+      player.alive=false;
+      running=false;
+    }
+  }
+
+  function draw(){
+    // bg
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // stars
+    ctx.globalAlpha = 0.25;
+    for(let i=0;i<50;i++){
+      const x = (i*191)%canvas.width;
+      const y = (i*97)%canvas.height;
+      ctx.fillRect(x,y,2,2);
+    }
+    ctx.globalAlpha = 1;
+
+    // platforms
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    for(const p of platforms){
+      ctx.fillRect(p.x,p.y,p.w,p.h);
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(p.x,p.y, p.w, 4);
+      ctx.fillStyle = "rgba(255,255,255,0.12)";
+    }
+
+    // player
+    ctx.fillStyle = player.alive ? "rgba(120,190,255,0.95)" : "rgba(255,90,90,0.9)";
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.fillRect(player.x+6, player.y+10, 4, 4);
+    ctx.fillRect(player.x+16, player.y+10, 4, 4);
+
+    // UI
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = "18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    ctx.fillText("ქულა: " + player.score, 16, 26);
+
+    // target box
+    const boxX=16, boxY=44, boxW=canvas.width-32, boxH=64;
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(boxX,boxY,boxW,boxH);
+    ctx.strokeStyle = "rgba(255,255,255,0.14)";
+    ctx.strokeRect(boxX,boxY,boxW,boxH);
+
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.font = "22px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    ctx.fillText("დასაწერი: " + target, boxX+14, boxY+30);
+
+    // typed highlight
+    ctx.font = "22px ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+    ctx.fillStyle = "rgba(120,255,170,0.95)";
+    ctx.fillText("შენ: " + typed, boxX+14, boxY+56);
+
+    if(!running){
+      ctx.fillStyle="rgba(0,0,0,0.55)";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle="rgba(255,255,255,0.95)";
+      ctx.font="28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx.fillText(player.alive ? "დასაწყებად დააჭირე Start" : "დამთავრდა! Start — თავიდან", 260, 210);
+      ctx.font="15px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx.fillText("წესები: სწორად აკრიფე სიტყვა. შეცდომაზე ქულა არ ემატება.", 270, 240);
+    } else if(paused){
+      ctx.fillStyle="rgba(0,0,0,0.45)";
+      ctx.fillRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle="rgba(255,255,255,0.95)";
+      ctx.font="28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx.fillText("პაუზა (P)", 410, 210);
+    }
+  }
+
+  function loop(ts){
+    const t = ts/1000;
+    const dt = Math.min(0.033, t - tPrev || 0);
+    tPrev = t;
+    update(dt);
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // input: typing one key at a time
+  window.addEventListener('keydown', (e) => {
+    if(e.key === "p" || e.key === "P"){ if(running) paused=!paused; return; }
+    if(e.key === "r" || e.key === "R"){ reset(); running=true; paused=false; return; }
+    if(!running || paused) return;
+
+    // ignore control keys
+    if(e.key.length !== 1) return;
+
+    // match next char
+    const next = target[typed.length];
+    if(e.key === next){
+      typed += e.key;
+      if(typed === target){
+        player.score += target.length * 10;
+        jumpBoost();
+        pickNewTarget();
+      }
+    } else {
+      // wrong key: small penalty (optional)
+      player.score = Math.max(0, player.score - 2);
+    }
+  });
+
+  startBtn.addEventListener('click', () => {
+    reset();
+    running = true;
+    paused = false;
+  });
+
+  reset();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
